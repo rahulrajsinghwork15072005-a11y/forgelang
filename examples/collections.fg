@@ -1,0 +1,29 @@
+// collections.fg — arrays, maps, higher-order functions
+fn map(arr, f) {
+  let out = [];
+  for (let i = 0; i < len(arr); i = i + 1) {
+    out.push(f(arr[i]));
+  }
+  return out;
+}
+
+fn filter(arr, pred) {
+  let out = [];
+  for (let i = 0; i < len(arr); i = i + 1) {
+    if (pred(arr[i])) { out.push(arr[i]); }
+  }
+  return out;
+}
+
+let nums = [1, 2, 3, 4, 5, 6];
+let squares = map(nums, fn(n) { return n * n; });
+let big = filter(squares, fn(n) { return n > 10; });
+
+print(nums);
+print(squares);
+print(big);
+
+let user = {name: "forge", version: 1};
+user.version = user.version + 1;
+print(user.name + " v" + str(user.version));
+print(keys(user));

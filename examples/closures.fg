@@ -1,0 +1,29 @@
+// closures.fg — stateful closures with shared and per-call cells
+fn make_counter(start) {
+  let count = start;
+  return fn() {
+    count = count + 1;
+    return count;
+  };
+}
+
+let a = make_counter(0);
+let b = make_counter(100);
+
+print(a());
+print(a());
+print(a());
+print(b());
+
+// two closures sharing one variable
+fn make_pair() {
+  let secret = 42;
+  let get = fn() { return secret; };
+  let set = fn(v) { secret = v; };
+  return [get, set];
+}
+
+let pair = make_pair();
+print(pair[0]());
+pair[1](99);
+print(pair[0]());

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forgelang"
+version = "1.0.0"
+description = "A small dynamically-typed language with two interchangeable engines: tree-walking interpreter and bytecode VM, plus a mark-sweep GC. Zero dependencies."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Rahul Raj Singh" }]
+keywords = ["language", "interpreter", "compiler", "bytecode", "vm"]
+
+[tool.setuptools.packages.find]
+include = ["forgelang*"]
+
+[project.scripts]
+forgelang = "forgelang.cli:main"
