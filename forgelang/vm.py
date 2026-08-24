@@ -27,7 +27,7 @@ class VmClosure:
 
 
 class Frame:
-    __slots__ = ("closure", "ip", "base")
+    __slots__ = ("base", "closure", "ip")
 
     def __init__(self, closure: VmClosure, base: int) -> None:
         self.closure = closure
@@ -62,57 +62,138 @@ class VM:
     def run(self):
         frame = self.frames[-1]
         code = frame.closure.proto.code
+        consts = frame.closure.proto.consts
+        stack = self.stack
+        budget = self.budget
+        steps = 0
+        heap = self.heap
+        trace = self.trace
+        object()
         while True:
-            self.steps += 1
-            if self.steps > self.budget:
+            steps += 1
+            if steps > budget:
                 raise ForgeError("execution budget exceeded (runaway loop?)")
             op = code[frame.ip]
             frame.ip += 1
-            if self.trace:
+            if trace:
                 from .compiler import OP_NAMES
 
                 print(
                     f"[trace] ip={frame.ip - 1:04d} {OP_NAMES.get(op, str(op)):<14} "
-                    f"stack={self.stack[-5:]}"
+                    f"stack={stack[-5:]}"
                 )
 
-            if op == C.OP_CONST:
-                self._push(frame.closure.proto.consts[code[frame.ip]])
-                frame.ip += 1
-            elif op == C.OP_NIL:
-                self._push(None)
-            elif op == C.OP_TRUE:
-                self._push(True)
-            elif op == C.OP_FALSE:
-                self._push(False)
-            elif op == C.OP_POP:
-                self.stack.pop()
-                if self.heap is not None:
-                    self.heap.release_pins()
-            elif op == C.OP_GET_LOCAL:
+            if op == C.OP_GET_LOCAL:
                 slot = code[frame.ip]
                 frame.ip += 1
-                self._push(self.stack[frame.base + slot])
+                stack.append(stack[frame.base + slot])
+            elif op == C.OP_CONST:
+                stack.append(consts[code[frame.ip]])
+                frame.ip += 1
+            elif op == C.OP_ADD:
+                b = stack.pop()
+                a = stack.pop()
+                if isinstance(a, str) and isinstance(b, str):
+                    result = a + b
+                    if heap is not None:
+                        heap.alloc(result)
+                else:
+                    from .values import add_values
+
+                    result = add_values(a, b, 0, 0)
+                stack.append(result)
+            elif op == C.OP_JMP_IF_FALSE:
+                offset = code[frame.ip]
+                frame.ip += 1
+                if not truthy(stack.pop()):
+                    frame.ip += offset
+            elif op == C.OP_LOOP:
+                offset = code[frame.ip]
+                frame.ip += 1
+                frame.ip -= offset
+            elif op == C.OP_JMP:
+                offset = code[frame.ip]
+                frame.ip += 1
+                frame.ip += offset
+            elif op == C.OP_LT:
+                b = stack.pop()
+                a = stack.pop()
+                stack.append(compare("<", a, b, 0, 0))
+            elif op == C.OP_POP:
+                stack.pop()
+                if heap is not None:
+                    heap.release_pins()
+            elif op == C.OP_CALL:
+                argc = code[frame.ip]
+                frame.ip += 1
+                callee = stack[-argc - 1]
+                if isinstance(callee, VmClosure):
+                    if argc != callee.proto.arity:
+                        raise ForgeError(
+                            f"{callee.proto.name} expects {callee.proto.arity} argument(s), got {argc}"
+                        )
+                    base = len(stack) - argc - 1
+                    if len(self.frames) >= 300:
+                        raise ForgeError("stack overflow (recursion too deep)")
+                    self.frames.append(Frame(callee, base))
+                    frame = self.frames[-1]
+                    code = frame.closure.proto.code
+                    consts = frame.closure.proto.consts
+                elif hasattr(callee, "fn"):
+                    arity = callee.arity
+                    if arity >= 0 and argc != arity:
+                        raise ForgeError(
+                            f"{callee.name} expects {arity} argument(s), got {argc}"
+                        )
+                    args = stack[-argc:] if argc else []
+                    del stack[-(argc + 1):]
+                    result = callee.fn(*args)
+                    stack.append(result)
+                else:
+                    raise ForgeError("cannot call a non-function value")
+            elif op == C.OP_RETURN:
+                if len(stack) > frame.base:
+                    result = stack.pop()
+                else:
+                    result = None
+                self.frames.pop()
+                self._close_upvalues(frame.base)
+                del stack[frame.base:]
+                if not self.frames:
+                    self.stack = stack
+                    self.steps = steps
+                    return result
+                stack.append(result)
+                frame = self.frames[-1]
+                code = frame.closure.proto.code
+                consts = frame.closure.proto.consts
             elif op == C.OP_SET_LOCAL:
                 slot = code[frame.ip]
                 frame.ip += 1
-                self.stack[frame.base + slot] = self.stack[-1]
+                stack[frame.base + slot] = stack[-1]
             elif op == C.OP_GET_GLOBAL:
-                name = frame.closure.proto.consts[code[frame.ip]]
+                name = consts[code[frame.ip]]
                 frame.ip += 1
-                if name not in self.globals:
+                g = self.globals.get(name)
+                if g is None and name not in self.globals:
                     raise ForgeError(f"undefined variable '{name}'")
-                self._push(self.globals[name])
+                stack.append(g)
             elif op == C.OP_DEF_GLOBAL:
-                name = frame.closure.proto.consts[code[frame.ip]]
+                name = consts[code[frame.ip]]
                 frame.ip += 1
-                self.globals[name] = self.stack.pop()
+                self.globals[name] = stack.pop()
             elif op == C.OP_SET_GLOBAL:
-                name = frame.closure.proto.consts[code[frame.ip]]
+                name = consts[code[frame.ip]]
                 frame.ip += 1
                 if name not in self.globals:
                     raise ForgeError(f"undefined variable '{name}'")
-                self.globals[name] = self.stack[-1]
+                self.globals[name] = stack[-1]
+            elif op == C.OP_NIL:
+                stack.append(None)
+            elif op == C.OP_TRUE:
+                stack.append(True)
+            elif op == C.OP_FALSE:
+                stack.append(False)
             elif op == C.OP_GET_UPVAL:
                 idx = code[frame.ip]
                 frame.ip += 1
@@ -129,18 +210,6 @@ class VM:
                     self.stack[cell.pos] = self.stack[-1]
                 else:
                     cell.value = self.stack[-1]
-            elif op == C.OP_ADD:
-                b = self.stack.pop()
-                a = self.stack.pop()
-                if isinstance(a, str) and isinstance(b, str):
-                    result = a + b
-                    if self.heap is not None:
-                        self.heap.alloc(result)
-                else:
-                    from .values import add_values
-
-                    result = add_values(a, b, 0, 0)
-                self._push(result)
             elif op in (C.OP_SUB, C.OP_MUL, C.OP_DIV, C.OP_MOD):
                 b = self.stack.pop()
                 a = self.stack.pop()
@@ -161,20 +230,11 @@ class VM:
                 b = self.stack.pop()
                 a = self.stack.pop()
                 self._push(not deep_eq(a, b))
-            elif op in (C.OP_LT, C.OP_LTE, C.OP_GT, C.OP_GTE):
+            elif op in (C.OP_LTE, C.OP_GT, C.OP_GTE):
                 b = self.stack.pop()
                 a = self.stack.pop()
-                op_str = {C.OP_LT: "<", C.OP_LTE: "<=", C.OP_GT: ">", C.OP_GTE: ">="}[op]
+                op_str = {C.OP_LTE: "<=", C.OP_GT: ">", C.OP_GTE: ">="}[op]
                 self._push(compare(op_str, a, b, 0, 0))
-            elif op == C.OP_JMP:
-                offset = code[frame.ip]
-                frame.ip += 1
-                frame.ip += offset
-            elif op == C.OP_JMP_IF_FALSE:
-                offset = code[frame.ip]
-                frame.ip += 1
-                if not truthy(self.stack.pop()):
-                    frame.ip += offset
             elif op == C.OP_JMP_IF_TRUE:
                 offset = code[frame.ip]
                 frame.ip += 1

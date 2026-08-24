@@ -112,7 +112,6 @@ def get_property(obj, name: str, line: int, col: int):
         if name == "push":
             def push(value):
                 obj.append(value)
-                return None
 
             return BuiltinFn("push", push, 1)
         if name == "pop":
@@ -192,7 +191,7 @@ def type_name(value) -> str:
 
 
 class BuiltinFn:
-    __slots__ = ("name", "fn", "arity")
+    __slots__ = ("arity", "fn", "name")
 
     def __init__(self, name: str, fn, arity) -> None:
         self.name = name
@@ -206,7 +205,7 @@ class BuiltinFn:
 class Closure:
     """Tree-walk closure: params/body AST plus captured environment."""
 
-    __slots__ = ("name", "params", "body", "env")
+    __slots__ = ("body", "env", "name", "params")
 
     def __init__(self, name, params, body, env) -> None:
         self.name = name or "<anon>"

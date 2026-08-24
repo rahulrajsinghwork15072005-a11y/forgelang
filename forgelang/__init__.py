@@ -18,13 +18,13 @@ from .gc import Heap
 from .tokens import ForgeError
 
 __all__ = [
-    "run_source",
-    "assert_conformance",
-    "dump_tokens",
-    "dump_bytecode",
-    "Heap",
-    "ForgeError",
-    "RunResult",
     "ConformanceError",
+    "ForgeError",
+    "Heap",
+    "RunResult",
+    "assert_conformance",
+    "dump_bytecode",
+    "dump_tokens",
+    "run_source",
 ]
 __version__ = "0.1.0"

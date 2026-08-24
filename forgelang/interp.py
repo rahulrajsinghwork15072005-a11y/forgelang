@@ -43,7 +43,7 @@ from .values import (
 
 
 class Environment:
-    __slots__ = ("values", "parent", "__weakref__")
+    __slots__ = ("__weakref__", "parent", "values")
 
     def __init__(self, parent=None) -> None:
         self.values: dict[str, object] = {}

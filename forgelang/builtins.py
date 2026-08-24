@@ -23,7 +23,6 @@ def make_globals(heap=None, out=None):
         from .values import format_value
 
         emit(" ".join(format_value(a) for a in args))
-        return None
 
     def fn_len(x):
         if isinstance(x, (list, dict, str)):
@@ -72,11 +71,11 @@ def make_globals(heap=None, out=None):
 
     def fn_min(a, b):
         a, b = _num(a, "min"), _num(b, "min")
-        return a if a <= b else b
+        return min(a, b)
 
     def fn_max(a, b):
         a, b = _num(a, "max"), _num(b, "max")
-        return a if a >= b else b
+        return max(a, b)
 
     def fn_str(x):
         from .values import format_value

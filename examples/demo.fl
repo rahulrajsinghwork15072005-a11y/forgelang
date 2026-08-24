@@ -1,0 +1,25 @@
+// Forgeland demo - run with:
+//   python cli.py examples/demo.fl
+//   python cli.py --engine interp examples/demo.fl
+
+let fib = fn(n) {
+  if (n < 2) { return n; }
+  return fib(n - 1) + fib(n - 2);
+};
+print("fib(10) = " + str(fib(10)));
+
+fn makeCounter(start) {
+  let n = start;
+  return fn() { n = n + 1; return n; };
+}
+let tick = makeCounter(10);
+print(tick()); print(tick()); print(tick());
+
+let squares = [];
+for (let i = 1; i <= 5; i = i + 1) {
+  push(squares, i * i);
+}
+print("squares: " + join(squares, ", "));
+
+let person = {"name": "ada", "lang": "forgeland"};
+print(upper(person.name) + " speaks " + person["lang"]);

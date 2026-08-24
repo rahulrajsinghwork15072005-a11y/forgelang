@@ -4,16 +4,32 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forgelang"
-version = "1.0.0"
-description = "A small dynamically-typed language with two interchangeable engines: tree-walking interpreter and bytecode VM, plus a mark-sweep GC. Zero dependencies."
+version = "0.1.0"
+description = "A programming language from scratch: lexer, Pratt parser, tree-walk interpreter AND bytecode VM with closures and mark-sweep GC. Conformance-tested."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Rahul Raj Singh" }]
-keywords = ["language", "interpreter", "compiler", "bytecode", "vm"]
+keywords = ["interpreter", "compiler", "bytecode", "virtual-machine", "garbage-collector"]
 
-[tool.setuptools.packages.find]
-include = ["forgelang*"]
+[tool.setuptools]
+packages = ["forgelang"]
 
-[project.scripts]
-forgelang = "forgelang.cli:main"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP"]
+ignore = [
+    "UP007", "UP006", "UP035",
+    "RUF022", "RUF023",
+    "BLE001",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"cli.py" = ["BLE001"]

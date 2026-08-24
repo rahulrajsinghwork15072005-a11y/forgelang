@@ -44,19 +44,25 @@ def cmd_run(args) -> int:
 
 
 def cmd_conform(args) -> int:
+    import glob as _glob
+
+    paths = []
+    for pattern in args.files:
+        matched = _glob.glob(pattern)
+        paths.extend(matched if matched else [pattern])
     failures = 0
     checked = 0
-    for path in args.files:
+    for path in paths:
         source = read_source(path)
         try:
             assert_conformance(source)
             checked += 1
             if args.verbose:
                 print(f"OK   {path}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - report every conformance failure
             failures += 1
             print(f"FAIL {path}: {exc}")
-    print(f"{checked - (failures and 0) + 0}/{checked + failures} conform")
+    print(f"{checked}/{checked + failures} conform")
     return 1 if failures else 0
 
 

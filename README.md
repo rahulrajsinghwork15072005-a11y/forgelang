@@ -1,70 +1,97 @@
-# Forgeland
+# ForgeLang
 
-A small dynamically-typed programming language with **two interchangeable
-execution engines**: a tree-walking interpreter and a bytecode compiler with
-a register-free stack VM. Every feature is tested for *conformance* - both
-engines must produce identical output or the build fails.
+A complete programming language built from scratch — **lexer → Pratt parser → AST →
+two interchangeable backends**: a tree-walk interpreter *and* a bytecode compiler
+driving a stack VM with upvalue closures and a mark-sweep garbage collector.
 
-Also has a mark-sweep garbage collector with allocation stats, closures with
-captured environments, arrays/maps, and a REPL.
-
-## Language tour
+> Pure Python stdlib. Zero dependencies.
+> A conformance harness runs every program through **both** engines and requires
+> byte-for-byte identical output.
 
 ```
-let fib = fn(n) {
+workload             engine       time
+fib recursion        interp       27.5 ms
+fib recursion        vm           11.9 ms      speedup: 2.63x
+arithmetic loop      interp      295 ms / vm ≈ parity (globals-traffic bound)
+```
+
+## The language
+
+```
+fn fib(n) {
   if (n < 2) { return n; }
-  return fib(n-1) + fib(n-2);
-};
-print(fib(10));                      // 55
-
-let user = {"name": "ada", "tags": ["pioneer"]};
-user["year"] = 1815;
-print(user.name + " " + str(user.year));
-
-let counter = fn() {
-  let n = 0;
-  return fn() { n = n + 1; return n; };
-};
-let next = counter();
-print(next()); print(next());        // 1, 2
-
-for (let i = 0; i < 3; i = i + 1) {
-  if (i == 1) { continue; }
-  print(i);
+  return fib(n - 1) + fib(n - 2);
 }
+print(fib(10));            // 55
+
+fn make_counter(start) {
+  let count = start;
+  return fn() { count = count + 1; return count; };
+}
+let next = make_counter(0);
+next(); next();            // closures capture mutable state
+
+let m = {name: "forge"};
+m.version = 2;             // dot access on maps
+[1, 2, 3].push(4);         // bound array methods
 ```
 
-Builtins: `print len push pop keys has del abs floor sqrt min max str num
-type range join split upper lower`
+Features: `let` / `fn` declarations · anonymous functions · first-class functions &
+closures (shared mutable capture) · `if/else`, `while`, C-style `for`,
+`break`/`continue` · arrays & hash maps with indexing, dot-access, `push/pop/keys`
+· strings with escapes and methods · logical short-circuiting (`and`/`or`) · deep
+equality · nil · a stdlib (`len push pop keys has del abs floor sqrt min max str num
+type range join split upper lower clock print`) · instruction-budget runaway-loop
+protection · compiler-style caret diagnostics with line/column on every error.
 
-## Running
+## Two backends, one semantics
+
+| | tree-walk interpreter | bytecode VM |
+|---|---|---|
+| dispatch | recursive `evaluate()` over AST | flat opcode loop over `(code, consts)` |
+| variables | chained environments | compile-time slot resolution: locals, upvalues, globals |
+| closures | captured environment reference | open/closed upvalue cells over frame slots |
+| speed (this repo) | baseline | ~2.6× on recursion, parity on globals-heavy loops |
+
+`bench.py --quick` reproduces the table above.
+
+## Conformance testing
+
+```python
+from forgelang.driver import assert_conformance
+assert_conformance(src)   # raises unless both engines agree exactly
+```
+
+Every semantic test in this repo runs each program through both engines and asserts
+identical stdout — including identical error messages for runtime failures. The CLI
+does it for whole files:
 
 ```bash
-python cli.py script.fl              # bytecode VM (default)
-python cli.py --engine interp script.fl
-python cli.py                        # REPL
-python -m pytest tests -v            # conformance suite
+python cli.py conform examples/*.fg -v
 ```
 
-## Why two engines?
+## CLI
 
-A tree-walking interpreter is the reference: direct, obvious, hard to get
-wrong. A compiler+VM is faster but reorders reality onto a stack, where
-bugs hide as phantom values several instructions away. Running every test
-on both and diffing outputs turns engine disagreements into instant,
-localized failures. This caught three real defects during development:
+```bash
+python cli.py run examples/fib.fg                 # VM by default
+python cli.py run examples/fib.fg --engine interp # tree-walk backend
+python cli.py dump tokens examples/fib.fg         # token stream w/ line:col
+python cli.py dump bytecode examples/fib.fg       # disassembly
+python cli.py run bench-src.fg --gc-stats         # GC collections/live objects
+python cli.py repl                                # interactive session
+```
 
-1. Map literals corrupted the value stack (compiler/VM contract mismatch).
-2. Index assignment emitted `value, obj, key` but the VM pops `value, key,
-   obj` - so `m["k"] = v` assigned into whatever sat below.
-3. Property-write parsing crashed on a missing import.
+Example diagnostics:
 
-See DEVLOG.md for how each surfaced.
+```
+line 3: division by zero
+    print(1/0);
+          ^
+```
 
-## GC
+## Architecture
 
-Allocations of arrays/maps/closures/cells register with a Heap. Crossing a
-threshold triggers mark-sweep from roots (VM stack, frames, globals, open
-upvalues / interpreter environment chain). Newly allocated objects are
-pinned until the next statement boundary so a collection can never reap the
-object currently being constructed.
+See [ARCHITECTURE.md](ARCHITECTURE.md) — includes the upvalue cell design
+(open → closed transitions), why map literals assemble after their pairs, how the
+mark-sweep heap pins mid-statement temporaries to stay sound, and the exact
+conformance contract between engines.

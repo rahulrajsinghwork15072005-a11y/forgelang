@@ -7,7 +7,7 @@ def both(src):
 
 
 def outs(src):
-    r1, r2 = both(src)
+    r1, _r2 = both(src)
     return r1.output
 
 
@@ -265,7 +265,7 @@ class TestGC:
         }
         print("survived");
         """
-        r1, r2 = both(src)
+        r1, _r2 = both(src)
         assert r1.output == ["survived"]
         assert r1.stats.gc_allocations > 2000
         assert r1.stats.gc_collections >= 1

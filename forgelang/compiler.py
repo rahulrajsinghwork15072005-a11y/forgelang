@@ -134,7 +134,7 @@ _SIMPLE_OPS = {
 
 
 class Proto:
-    __slots__ = ("name", "arity", "code", "consts", "lines", "upvals")
+    __slots__ = ("arity", "code", "consts", "lines", "name", "upvals")
 
     def __init__(self, name: str, arity: int) -> None:
         self.name = name
@@ -169,7 +169,7 @@ class Cell:
     """Upvalue box. While open, ``pos`` indexes the owning frame's stack;
     on close the value is copied into ``value`` and ``pos`` becomes None."""
 
-    __slots__ = ("value", "pos")
+    __slots__ = ("pos", "value")
 
     def __init__(self, pos=None) -> None:
         self.value = None
@@ -180,7 +180,7 @@ class Cell:
 
 
 class Local:
-    __slots__ = ("name", "depth", "is_captured")
+    __slots__ = ("depth", "is_captured", "name")
 
     def __init__(self, name: str, depth: int) -> None:
         self.name = name
