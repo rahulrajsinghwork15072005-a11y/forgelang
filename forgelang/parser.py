@@ -228,6 +228,24 @@ class Parser:
 
     def assignment(self):
         left = self.binary(_ASSIGN_RIGHT + 1)
+        for op_type, op_name, op_cls in (
+            (T.PLUSEQ, "+", Binary), (T.MINUSEQ, "-", Binary),
+            (T.STAREQ, "*", Binary), (T.SLASHEQ, "/", Binary),
+        ):
+            if self.check(op_type):
+                eq_tok = self.advance()
+                if not isinstance(left, (Ident, Index)):
+                    raise SyntaxErr(
+                        "invalid assignment target for compound assignment",
+                        eq_tok.line, eq_tok.col,
+                    )
+                value = self.assignment()
+                from .ast_nodes import Binary as BinCls
+                combined = BinCls(op=op_name, left=left, right=value)
+                combined.line, combined.col = eq_tok.line, eq_tok.col
+                node = Assign(target=left, value=combined)
+                node.line, node.col = eq_tok.line, eq_tok.col
+                return node
         if self.check(T.ASSIGN):
             eq_tok = self.advance()
             if not isinstance(left, (Ident, Index, GetProp)):

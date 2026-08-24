@@ -205,6 +205,45 @@ class Interpreter:
         return env.get(node.name, node.line, node.col)
 
     def eval_Assign(self, node: Assign, env):
+        if getattr(node, 'binop', None):
+            target = node.target
+            value = self.evaluate(node.value, env)
+            if isinstance(target, Ident):
+                cur = env.get(target.name, target.line, target.col)
+                new = self._apply_binop(cur, node.binop, value, target)
+                env.assign(target.name, new, target.line, target.col)
+                return new
+            if isinstance(target, Index):
+                obj = self.evaluate(target.obj, env)
+                key = self.evaluate(target.index, env)
+                cur = index_get(obj, key, target.line, target.col)
+                new = self._apply_binop(cur, node.binop, value, target)
+                index_set(obj, key, new, target.line, target.col)
+                return new
+            raise ForgeError("invalid compound assignment target", target.line, target.col)
+        return self._eval_plain_assign(node, env)
+
+    def _apply_binop(self, left, op, right, node):
+        if op == "+":
+            from .values import add_values
+            return add_values(left, right, node.line, node.col)
+        if op == "-":
+            from .values import compare_values
+            if isinstance(left, str) or isinstance(right, str):
+                raise ForgeError("cannot subtract strings", node.line, node.col)
+            return left - right
+        if op == "*":
+            if isinstance(left, str) and isinstance(right, int):
+                return left * right
+            return left * right
+        if op == "/":
+            if right == 0:
+                raise ForgeError("division by zero", node.line, node.col)
+            q = left / right
+            return int(q) if isinstance(left, int) and isinstance(right, int) else q
+        raise ForgeError(f"unknown operator {op}")
+
+    def _eval_plain_assign(self, node: Assign, env):
         target = node.target
         if isinstance(target, Ident):
             value = self.evaluate(node.value, env)

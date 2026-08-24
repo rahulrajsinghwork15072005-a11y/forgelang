@@ -107,12 +107,16 @@ def tokenize(source: str) -> list[Token]:
             continue
 
         two = source[i : i + 2]
-        if two in ("==", "!=", "<=", ">="):
+        if two in ("==", "!=", "<=", ">=", "+=", "-=", "*=", "/="):
             ttype = {
                 "==": T.EQ,
                 "!=": T.NEQ,
                 "<=": T.LTE,
                 ">=": T.GTE,
+                "+=": T.PLUSEQ,
+                "-=": T.MINUSEQ,
+                "*=": T.STAREQ,
+                "/=": T.SLASHEQ,
             }[two]
             tokens.append(Token(ttype, two, two, start_line, start_col))
             advance(2)
