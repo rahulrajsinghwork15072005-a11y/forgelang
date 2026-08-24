@@ -129,8 +129,9 @@ class VM:
                 callee = stack[-argc - 1]
                 if isinstance(callee, VmClosure):
                     if argc != callee.proto.arity:
+                        want = callee.proto.arity
                         raise ForgeError(
-                            f"{callee.proto.name} expects {callee.proto.arity} argument(s), got {argc}"
+                            f"{callee.proto.name} expects {want} argument(s), got {argc}"
                         )
                     base = len(stack) - argc - 1
                     if len(self.frames) >= 300:
