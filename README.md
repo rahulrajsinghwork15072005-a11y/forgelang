@@ -9,31 +9,31 @@ driving a stack VM with upvalue closures and a mark-sweep garbage collector.
 > byte-for-byte identical output.
 
 ```
-workload             engine       time
-fib recursion        interp       27.5 ms
-fib recursion        vm           11.9 ms      speedup: 2.63x
-arithmetic loop      interp      295 ms / vm ≈ parity (globals-traffic bound)
+workload engine time
+fib recursion interp 27.5 ms
+fib recursion vm 11.9 ms speedup: 2.63x
+arithmetic loop interp 295 ms / vm ≈ parity (globals-traffic bound)
 ```
 
 ## The language
 
 ```
 fn fib(n) {
-  if (n < 2) { return n; }
-  return fib(n - 1) + fib(n - 2);
+ if (n < 2) { return n; }
+ return fib(n - 1) + fib(n - 2);
 }
-print(fib(10));            // 55
+print(fib(10)); // 55
 
 fn make_counter(start) {
-  let count = start;
-  return fn() { count = count + 1; return count; };
+ let count = start;
+ return fn { count = count + 1; return count; };
 }
 let next = make_counter(0);
-next(); next();            // closures capture mutable state
+next; next; // closures capture mutable state
 
 let m = {name: "forge"};
-m.version = 2;             // dot access on maps
-[1, 2, 3].push(4);         // bound array methods
+m.version = 2; // dot access on maps
+[1, 2, 3].push(4); // bound array methods
 ```
 
 Features: `let` / `fn` declarations · anonymous functions · first-class functions &
@@ -48,7 +48,7 @@ protection · compiler-style caret diagnostics with line/column on every error.
 
 | | tree-walk interpreter | bytecode VM |
 |---|---|---|
-| dispatch | recursive `evaluate()` over AST | flat opcode loop over `(code, consts)` |
+| dispatch | recursive `evaluate` over AST | flat opcode loop over `(code, consts)` |
 | variables | chained environments | compile-time slot resolution: locals, upvalues, globals |
 | closures | captured environment reference | open/closed upvalue cells over frame slots |
 | speed (this repo) | baseline | ~2.6× on recursion, parity on globals-heavy loops |
@@ -59,7 +59,7 @@ protection · compiler-style caret diagnostics with line/column on every error.
 
 ```python
 from forgelang.driver import assert_conformance
-assert_conformance(src)   # raises unless both engines agree exactly
+assert_conformance(src) # raises unless both engines agree exactly
 ```
 
 Every semantic test in this repo runs each program through both engines and asserts
@@ -73,20 +73,20 @@ python cli.py conform examples/*.fg -v
 ## CLI
 
 ```bash
-python cli.py run examples/fib.fg                 # VM by default
+python cli.py run examples/fib.fg # VM by default
 python cli.py run examples/fib.fg --engine interp # tree-walk backend
-python cli.py dump tokens examples/fib.fg         # token stream w/ line:col
-python cli.py dump bytecode examples/fib.fg       # disassembly
-python cli.py run bench-src.fg --gc-stats         # GC collections/live objects
-python cli.py repl                                # interactive session
+python cli.py dump tokens examples/fib.fg # token stream w/ line:col
+python cli.py dump bytecode examples/fib.fg # disassembly
+python cli.py run bench-src.fg --gc-stats # GC collections/live objects
+python cli.py repl # interactive session
 ```
 
 Example diagnostics:
 
 ```
 line 3: division by zero
-    print(1/0);
-          ^
+ print(1/0);
+ ^
 ```
 
 ## Architecture
